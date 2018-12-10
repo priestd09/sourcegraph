@@ -1,20 +1,17 @@
-import {
-    createHoverifier,
-    findPositionsFromEvents,
-    HoveredToken,
-    HoverOverlay,
-    HoverState,
-} from '@sourcegraph/codeintellify'
+import { createHoverifier, findPositionsFromEvents, HoveredToken, HoverState } from '@sourcegraph/codeintellify'
 import { getCodeElementsInRange, locateTarget } from '@sourcegraph/codeintellify/lib/token_position'
 import { TextDocumentDecoration } from '@sourcegraph/extension-api-types'
 import * as H from 'history'
 import { isEqual, pick } from 'lodash'
 import * as React from 'react'
-import { Link, LinkProps } from 'react-router-dom'
 import { combineLatest, fromEvent, merge, Observable, Subject, Subscription } from 'rxjs'
 import { catchError, distinctUntilChanged, filter, map, share, switchMap, withLatestFrom } from 'rxjs/operators'
+import { ActionItemProps } from '../../../../shared/src/actions/ActionItem'
 import { decorationStyleForTheme } from '../../../../shared/src/api/client/services/decoration'
+import { HoverMerged } from '../../../../shared/src/api/client/types/hover'
 import { ExtensionsControllerProps } from '../../../../shared/src/extensions/controller'
+import { getHoverActions } from '../../../../shared/src/hover/actions'
+import { HoverContext, HoverOverlay } from '../../../../shared/src/hover/HoverOverlay'
 import { PlatformContextProps } from '../../../../shared/src/platform/context'
 import { SettingsCascadeProps } from '../../../../shared/src/settings/settings'
 import { asError, ErrorLike, isErrorLike } from '../../../../shared/src/util/errors'
@@ -29,12 +26,10 @@ import {
     ResolvedRevSpec,
     RevSpec,
     toPositionOrRangeHash,
-    toPrettyBlobURL,
 } from '../../../../shared/src/util/url'
-import { getDecorations, getHover, getJumpURL, ModeSpec } from '../../backend/features'
+import { getDecorations, getHover, ModeSpec } from '../../backend/features'
 import { LSPSelector, LSPTextDocumentPositionParams } from '../../backend/lsp'
 import { isDiscussionsEnabled } from '../../discussions'
-import { eventLogger } from '../../tracking/eventLogger'
 import { lprToSelectionsZeroIndexed } from '../../util/url'
 import { DiscussionsGutterOverlay } from './discussions/DiscussionsGutterOverlay'
 import { LineDecorationAttachment } from './LineDecorationAttachment'
@@ -64,7 +59,7 @@ interface BlobProps
     isLightTheme: boolean
 }
 
-interface BlobState extends HoverState {
+interface BlobState extends HoverState<HoverContext, HoverMerged, ActionItemProps> {
     /** The desired position of the discussions gutter overlay */
     discussionsGutterOverlayPosition?: { left: number; top: number }
 
@@ -78,9 +73,6 @@ interface BlobState extends HoverState {
     /** The decorations to display in the blob. */
     decorationsOrError?: TextDocumentDecoration[] | null | ErrorLike
 }
-
-const logTelemetryEvent = (event: string, data?: any) => eventLogger.log(event, data)
-const LinkComponent = (props: LinkProps) => <Link {...props} />
 
 const domFunctions = {
     getCodeElementFromTarget: (target: HTMLElement): HTMLTableCellElement | null => {
@@ -135,10 +127,6 @@ export class Blob extends React.Component<BlobProps, BlobState> {
     private hoverOverlayElements = new Subject<HTMLElement | null>()
     private nextOverlayElement = (element: HTMLElement | null) => this.hoverOverlayElements.next(element)
 
-    /** Emits when the go to definition button was clicked */
-    private goToDefinitionClicks = new Subject<MouseEvent>()
-    private nextGoToDefinitionClick = (event: MouseEvent) => this.goToDefinitionClicks.next(event)
-
     /** Emits when the close button was clicked */
     private closeButtonClicks = new Subject<MouseEvent>()
     private nextCloseButtonClick = (event: MouseEvent) => this.closeButtonClicks.next(event)
@@ -159,9 +147,12 @@ export class Blob extends React.Component<BlobProps, BlobState> {
             share()
         )
 
-        const hoverifier = createHoverifier<RepoSpec & RevSpec & FileSpec & ResolvedRevSpec>({
+        const hoverifier = createHoverifier<
+            RepoSpec & RevSpec & FileSpec & ResolvedRevSpec,
+            HoverMerged,
+            ActionItemProps
+        >({
             closeButtonClicks: this.closeButtonClicks,
-            goToDefinitionClicks: this.goToDefinitionClicks,
             hoverOverlayElements: this.hoverOverlayElements,
             hoverOverlayRerenders: this.componentUpdates.pipe(
                 withLatestFrom(this.hoverOverlayElements, this.blobElements),
@@ -170,11 +161,8 @@ export class Blob extends React.Component<BlobProps, BlobState> {
                 // Can't reposition HoverOverlay if it wasn't rendered
                 filter(propertyIsDefined('hoverOverlayElement'))
             ),
-            pushHistory: path => this.props.history.push(path),
-            logTelemetryEvent,
             fetchHover: position => getHover(this.getLSPTextDocumentPositionParams(position), this.props),
-            fetchJumpURL: position => getJumpURL(this.getLSPTextDocumentPositionParams(position), this.props),
-            getReferencesURL: position => toPrettyBlobURL({ ...position, position, viewState: 'references' }),
+            fetchActions: context => getHoverActions(this.props, context),
         })
         this.subscriptions.add(hoverifier)
 
@@ -467,11 +455,15 @@ export class Blob extends React.Component<BlobProps, BlobState> {
                 {this.state.hoverOverlayProps && (
                     <HoverOverlay
                         {...this.state.hoverOverlayProps}
-                        logTelemetryEvent={logTelemetryEvent}
-                        linkComponent={LinkComponent}
                         hoverRef={this.nextOverlayElement}
+<<<<<<< HEAD
                         onGoToDefinitionClick={this.nextGoToDefinitionClick}
                         onCloseButtonClick={this.nextCloseButtonClick}
+=======
+                        extensionsController={this.props.extensionsController}
+                        platformContext={this.props.platformContext}
+                        location={this.props.location}
+>>>>>>> 2b2c7ca9... WIP: extension hover actions + implement "Go to definition" and "Find references"
                     />
                 )}
                 {this.state.decorationsOrError &&

@@ -1,7 +1,7 @@
-import { HoverMerged } from '@sourcegraph/codeintellify/lib/types'
 import { Location, TextDocumentDecoration } from '@sourcegraph/extension-api-types'
 import { Observable } from 'rxjs'
 import { map } from 'rxjs/operators'
+import { HoverMerged } from '../../../shared/src/api/client/types/hover'
 import { ExtensionsControllerProps } from '../../../shared/src/extensions/controller'
 import { AbsoluteRepoFile, parseRepoURI, toPrettyBlobURL } from '../../../shared/src/util/url'
 import { toAbsoluteBlobURL } from '../util/url'
